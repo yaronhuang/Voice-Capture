@@ -121,6 +121,41 @@ def transcribe_whisper(wav_path: Path, vocab_prompt: str | None = None) -> str:
     return " ".join(cleaned)
 
 
+def transcribe_apple(m4a_path: Path) -> str:
+    """Transcribe using macOS on-device speech recognition (SFSpeechRecognizer)."""
+    import Speech
+    from Foundation import NSURL, NSRunLoop, NSDate
+
+    recognizer = Speech.SFSpeechRecognizer.alloc().init()
+    if not recognizer.isAvailable():
+        return ""
+
+    audio_url = NSURL.fileURLWithPath_(str(m4a_path))
+    request = Speech.SFSpeechURLRecognitionRequest.alloc().initWithURL_(audio_url)
+    request.setShouldReportPartialResults_(False)
+    request.setRequiresOnDeviceRecognition_(True)
+
+    final_text = [None]
+    error_msg = [None]
+
+    def handler(result, error, ft=final_text, em=error_msg):
+        if error:
+            em[0] = str(error.localizedDescription())
+        if result and result.isFinal():
+            ft[0] = result.bestTranscription().formattedString()
+
+    recognizer.recognitionTaskWithRequest_resultHandler_(request, handler)
+
+    for _ in range(30):
+        NSRunLoop.currentRunLoop().runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(1.0))
+        if final_text[0] or error_msg[0]:
+            break
+
+    if error_msg[0]:
+        log.warning("Apple dictation error: %s", error_msg[0])
+    return final_text[0] or ""
+
+
 def load_vocab_prompt() -> str | None:
     if VOCAB_PROMPT_FILE.exists():
         return VOCAB_PROMPT_FILE.read_text().strip()
@@ -130,15 +165,16 @@ def load_vocab_prompt() -> str | None:
 # Claude Chat webhook
 # ---------------------------------------------------------------------------
 
-def send_to_claude(parakeet_text: str, whisper_text: str, filename: str, duration: float):
+def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filename: str, duration: float):
     """Send transcripts as an email to Aaron via Gmail skill."""
     subject = f"Voice memo ({duration:.0f}s)"
     body = (
         "Aaron recorded a voice memo. Read Voice-Capture/CLAUDE.md for full context "
         "on post-processing his speech.\n\n"
-        f"Transcript A (Parakeet): \"{parakeet_text}\"\n"
-        f"Transcript B (Whisper w/ medical vocab): \"{whisper_text}\"\n\n"
-        "Cross-reference both transcripts, infer what Aaron said, take action, "
+        f"Transcript A (Apple Dictation): \"{apple_text}\"\n"
+        f"Transcript B (Parakeet): \"{parakeet_text}\"\n"
+        f"Transcript C (Whisper w/ medical vocab): \"{whisper_text}\"\n\n"
+        "Cross-reference all three transcripts, infer what Aaron said, take action, "
         "and reply with what you understood."
     )
 
@@ -215,8 +251,13 @@ def process_file(m4a: Path):
         # 1. Normalize
         normalize_audio(m4a, wav_path)
 
-        # 2. Transcribe with both models
+        # 2. Transcribe with all three models
         vocab = load_vocab_prompt()
+
+        log.info("  Running Apple Dictation...")
+        t0 = time.time()
+        apple_text = transcribe_apple(m4a)  # uses original m4a, not normalized wav
+        log.info("  Apple (%.1fs): %s", time.time() - t0, apple_text[:100])
 
         log.info("  Running Parakeet...")
         t0 = time.time()
@@ -229,7 +270,7 @@ def process_file(m4a: Path):
         log.info("  Whisper (%.1fs): %s", time.time() - t0, whisper_text[:100])
 
         # 3. Send to Claude via email
-        send_to_claude(parakeet_text, whisper_text, m4a.name, duration)
+        send_to_claude(apple_text, parakeet_text, whisper_text, m4a.name, duration)
 
     finally:
         wav_path.unlink(missing_ok=True)
