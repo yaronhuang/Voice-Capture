@@ -52,7 +52,7 @@ log = logging.getLogger("voice-capture")
 def load_state() -> dict:
     if STATE_FILE.exists():
         return json.loads(STATE_FILE.read_text())
-    return {"processed": []}
+    return {"processed": [], "last_run": 0}
 
 
 def save_state(state: dict):
@@ -249,19 +249,11 @@ def main():
 
     state = load_state()
     processed = set(state.get("processed", []))
-    now = time.time()
     new_count = 0
 
     for m4a in sorted(VOICE_MEMOS_DIR.glob("*.m4a")):
         fh = file_hash(m4a)
         if fh in processed:
-            continue
-
-        # Skip files older than MAX_AGE_SECONDS
-        age = now - m4a.stat().st_mtime
-        if age > MAX_AGE_SECONDS:
-            # Mark as processed so we don't check again
-            processed.add(fh)
             continue
 
         try:
