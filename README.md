@@ -60,6 +60,8 @@ launchctl list | grep voice-capture
 | File | Purpose |
 |------|---------|
 | `watcher.py` | Main pipeline script triggered by launchd |
+| `form_submit.py` | Submit structured data to Life Tracking Google Form |
+| `form_config.json` | Form field definitions, options, and page mappings |
 | `vocab_prompt.txt` | Medical vocabulary for Whisper prompt conditioning |
 | `CLAUDE.md` | Context for Claude sessions processing voice memos |
 | `com.aronhuang.voice-capture.plist` | launchd service definition |
@@ -69,4 +71,4 @@ launchctl list | grep voice-capture
 1. Record a Voice Memo on iPhone or Apple Watch
 2. Wait for iCloud sync (~5-15 seconds)
 3. Pipeline runs automatically
-4. Receive email with Claude's interpretation and action taken
+4. Claude interprets the transcript, submits trackable data to the Life Tracking Google Form, and replies with the action taken
