@@ -165,12 +165,25 @@ def load_vocab_prompt() -> str | None:
 # Claude Chat webhook
 # ---------------------------------------------------------------------------
 
+def _parse_recording_time(filename: str) -> str:
+    """Parse timestamp from Voice Memo filename like '20260402 064548-C926ECA0.m4a'."""
+    try:
+        parts = filename.split("-")[0].strip()  # '20260402 064548'
+        from datetime import datetime
+        dt = datetime.strptime(parts, "%Y%m%d %H%M%S")
+        return dt.strftime("%B %d, %Y at %I:%M %p")  # 'April 02, 2026 at 06:45 AM'
+    except (ValueError, IndexError):
+        return ""
+
+
 def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filename: str, duration: float):
     """Send transcripts as an email to Aaron via Gmail skill."""
-    subject = f"Voice memo ({duration:.0f}s)"
+    recorded_at = _parse_recording_time(filename)
+    time_str = f" recorded {recorded_at}" if recorded_at else ""
+    subject = f"Voice memo ({duration:.0f}s){time_str}"
     body = (
-        "Aaron recorded a voice memo. Read Voice-Capture/CLAUDE.md for full context "
-        "on post-processing his speech.\n\n"
+        f"Aaron recorded a voice memo{' at ' + recorded_at if recorded_at else ''}. "
+        "Read Voice-Capture/CLAUDE.md for full context on post-processing his speech.\n\n"
         f"Transcript A (Apple Dictation): \"{apple_text}\"\n"
         f"Transcript B (Parakeet): \"{parakeet_text}\"\n"
         f"Transcript C (Whisper w/ medical vocab): \"{whisper_text}\"\n\n"
