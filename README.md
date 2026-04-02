@@ -71,4 +71,4 @@ launchctl list | grep voice-capture
 1. Record a Voice Memo on iPhone or Apple Watch
 2. Wait for iCloud sync (~5-15 seconds)
 3. Pipeline runs automatically
-4. Claude interprets the transcript, submits trackable data to the Life Tracking Google Form, and replies with the action taken
+4. Claude interprets the transcript and takes action — answering questions, journaling, or submitting health tracking data to the Life Tracking Google Form
