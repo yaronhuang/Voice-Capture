@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.aronhuang.voice-capture</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/aronhuang/.venvs/whisper/bin/python3</string>
+        <string>/Users/aronhuang/Developer/Claude/Voice-Capture/watcher.py</string>
+    </array>
+    <key>WatchPaths</key>
+    <array>
+        <string>/Users/aronhuang/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings</string>
+    </array>
+    <key>StandardOutPath</key>
+    <string>/tmp/voice-capture.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/voice-capture.stderr.log</string>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>

@@ -9,3 +9,5 @@ build/
 *.wav
 *.mp3
 audio_uploads/
+state.json
+voice-capture.log

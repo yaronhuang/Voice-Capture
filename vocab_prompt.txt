@@ -1,0 +1,10 @@
+Aaron is logging medications, health notes, or journal entries.
+Medications: Synthroid, levothyroxine, Keytruda, pembrolizumab, Ritalin,
+methylphenidate, duloxetine, gabapentin, ondansetron, morphine, oxycodone,
+ibuprofen, Tylenol, acetaminophen, Celebrex, celecoxib, melatonin, theracurmin, Pendulum
+Metabolic Daily, Pendulum Akkermansia, magnesium, vitamin D, fish oil,
+Mucinex, probiotics, BioGaia, colostrum.
+Medical: squamous cell carcinoma, oral cancer, radiation, immunotherapy,
+mucositis, fistula, tracheotomy, glossectomy, larynx, thyroid, dysphagia.
+People: Dr. Algazi, Dr. Kang, Dr. Heaton, Dr. Chan, Rachel.
+Places: UCSF, Mount Zion, Mission Bay, Dana-Farber.
