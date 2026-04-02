@@ -242,23 +242,32 @@ def main():
         log.error("Voice Memos directory not found: %s", VOICE_MEMOS_DIR)
         sys.exit(1)
 
-    # Wait for any in-progress iCloud writes to finish.
-    # Scan twice with a gap — only process files whose size is stable.
-    sizes_before = {f: f.stat().st_size for f in VOICE_MEMOS_DIR.glob("*.m4a")}
-    time.sleep(3)
-    sizes_after = {f: f.stat().st_size for f in VOICE_MEMOS_DIR.glob("*.m4a")}
-
     state = load_state()
     processed = set(state.get("processed", []))
     new_count = 0
 
-    for m4a in sorted(sizes_after):
+    # Quick scan: are there any new files at all?
+    new_files = []
+    for m4a in sorted(VOICE_MEMOS_DIR.glob("*.m4a")):
+        if file_hash(m4a) not in processed:
+            new_files.append(m4a)
+
+    if not new_files:
+        log.info("Done. Processed 0 new file(s).")
+        save_state({"processed": list(processed)})
+        return
+
+    # New files found — wait for iCloud writes to finish, then verify stable size
+    sizes_before = {f: f.stat().st_size for f in new_files}
+    time.sleep(3)
+
+    for m4a in new_files:
         fh = file_hash(m4a)
         if fh in processed:
             continue
 
-        # Skip files still being written (size changed between checks)
-        if sizes_before.get(m4a) != sizes_after[m4a]:
+        # Skip files still being written (size changed)
+        if m4a.stat().st_size != sizes_before[m4a]:
             log.info("Skipping %s — still being written", m4a.name)
             continue
 
