@@ -238,22 +238,28 @@ def process_file(m4a: Path):
 def main():
     log.info("Voice Capture watcher triggered")
 
-    # Wait briefly for iCloud sync to finish writing the .m4a file.
-    # launchd triggers on the DB update, but the audio file may arrive
-    # a few seconds later.
-    time.sleep(5)
-
     if not VOICE_MEMOS_DIR.exists():
         log.error("Voice Memos directory not found: %s", VOICE_MEMOS_DIR)
         sys.exit(1)
+
+    # Wait for any in-progress iCloud writes to finish.
+    # Scan twice with a gap — only process files whose size is stable.
+    sizes_before = {f: f.stat().st_size for f in VOICE_MEMOS_DIR.glob("*.m4a")}
+    time.sleep(3)
+    sizes_after = {f: f.stat().st_size for f in VOICE_MEMOS_DIR.glob("*.m4a")}
 
     state = load_state()
     processed = set(state.get("processed", []))
     new_count = 0
 
-    for m4a in sorted(VOICE_MEMOS_DIR.glob("*.m4a")):
+    for m4a in sorted(sizes_after):
         fh = file_hash(m4a)
         if fh in processed:
+            continue
+
+        # Skip files still being written (size changed between checks)
+        if sizes_before.get(m4a) != sizes_after[m4a]:
+            log.info("Skipping %s — still being written", m4a.name)
             continue
 
         try:
