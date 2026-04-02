@@ -20,16 +20,14 @@ When you receive a voice memo email with two transcripts (Parakeet + Whisper):
 1. **Cross-reference both transcripts** — different models catch different words
 2. **Use the vocabulary list** in `vocab_prompt.txt` for medication/medical term hints
 3. **Infer meaning from context** — if it sounds like medication names + dosages, it's a medication log
-4. **Take action** — prefer submitting to the Life Tracking form whenever the content matches a form category:
-   - Medication/supplement log → submit via `form_submit.py` (category: `💊 Medications and Supplements`)
-   - Symptom/energy/mood report → submit via `form_submit.py` (category: `😃 Symptoms`)
-   - Food/drink intake → submit via `form_submit.py` (category: `🍱 Food` or `🥤 Drinks`)
-   - Exercise → submit via `form_submit.py` (category: `🏋️‍♀️ Exercise`)
-   - Sleep data → submit via `form_submit.py` (category: `⏾ Sleep`)
-   - Treatment/imaging → submit via `form_submit.py` (category: `🏥 Treatments`)
-   - Journal entry (not trackable) → save to the appropriate project
+4. **Take action** based on what Aaron said:
    - Question → research and reply
+   - Journal entry → save to the appropriate project
+   - Task or reminder → create it in the relevant system
+   - **Health tracking data** → submit via `form_submit.py` (see below)
    - Unclear → ask Aaron to confirm
+
+   Health tracking data includes: medications, supplements, symptoms, energy, food, drinks, exercise, sleep, treatments. When you identify these, submit to the Life Tracking form using `form_submit.py`.
 5. **Always reply** with what you understood and what action you took
 
 ## Life Tracking Form Submission
