@@ -52,7 +52,7 @@ log = logging.getLogger("voice-capture")
 def load_state() -> dict:
     if STATE_FILE.exists():
         return json.loads(STATE_FILE.read_text())
-    return {"processed": [], "last_run": 0}
+    return {"processed": []}
 
 
 def save_state(state: dict):
@@ -238,37 +238,30 @@ def process_file(m4a: Path):
 def main():
     log.info("Voice Capture watcher triggered")
 
+    # Wait briefly for iCloud sync to finish writing the .m4a file.
+    # launchd triggers on the DB update, but the audio file may arrive
+    # a few seconds later.
+    time.sleep(5)
+
     if not VOICE_MEMOS_DIR.exists():
         log.error("Voice Memos directory not found: %s", VOICE_MEMOS_DIR)
         sys.exit(1)
 
     state = load_state()
     processed = set(state.get("processed", []))
+    now = time.time()
     new_count = 0
 
-    # Quick scan: are there any new files at all?
-    new_files = []
     for m4a in sorted(VOICE_MEMOS_DIR.glob("*.m4a")):
-        if file_hash(m4a) not in processed:
-            new_files.append(m4a)
-
-    if not new_files:
-        log.info("Done. Processed 0 new file(s).")
-        save_state({"processed": list(processed)})
-        return
-
-    # New files found — wait for iCloud writes to finish, then verify stable size
-    sizes_before = {f: f.stat().st_size for f in new_files}
-    time.sleep(3)
-
-    for m4a in new_files:
         fh = file_hash(m4a)
         if fh in processed:
             continue
 
-        # Skip files still being written (size changed)
-        if m4a.stat().st_size != sizes_before[m4a]:
-            log.info("Skipping %s — still being written", m4a.name)
+        # Skip files older than MAX_AGE_SECONDS
+        age = now - m4a.stat().st_mtime
+        if age > MAX_AGE_SECONDS:
+            # Mark as processed so we don't check again
+            processed.add(fh)
             continue
 
         try:

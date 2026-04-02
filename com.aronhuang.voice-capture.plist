@@ -17,8 +17,6 @@
     <string>/tmp/voice-capture.stdout.log</string>
     <key>StandardErrorPath</key>
     <string>/tmp/voice-capture.stderr.log</string>
-    <key>StartInterval</key>
-    <integer>60</integer>
     <key>ThrottleInterval</key>
     <integer>10</integer>
 </dict>
