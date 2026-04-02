@@ -60,11 +60,11 @@ launchctl list | grep voice-capture
 | File | Purpose |
 |------|---------|
 | `watcher.py` | Main pipeline script triggered by launchd |
-| `form_submit.py` | Submit structured data to Life Tracking Google Form |
-| `form_config.json` | Form field definitions, options, and page mappings |
 | `vocab_prompt.txt` | Medical vocabulary for Whisper prompt conditioning |
 | `CLAUDE.md` | Context for Claude sessions processing voice memos |
 | `com.aronhuang.voice-capture.plist` | launchd service definition |
+
+Health tracking form submission lives in the shared `health-tracking` skill (`~/.claude/skills/health-tracking/`).
 
 ## Usage
 
