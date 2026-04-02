@@ -155,24 +155,31 @@ def send_to_claude(parakeet_text: str, whisper_text: str, filename: str, duratio
             text=True,
             timeout=30,
         )
-        if result.returncode == 0:
-            log.info("Email to Claude: %s", result.stdout.strip()[:100])
-        else:
+        if result.returncode != 0:
             log.error("Email to Claude failed: %s", result.stderr.strip()[:200])
             return False
 
-        # Forward a copy to Aaron so he can see what Claude received
+        log.info("Email to Claude: %s", result.stdout.strip()[:100])
+
+        # Parse thread ID and message ID from the response for threading
+        thread_id = ""
+        msg_id_header = ""
+        try:
+            resp = json.loads(result.stdout.strip())
+            thread_id = resp.get("threadId", "")
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # Forward a copy to Aaron in the same thread
         fwd_body = f"[Voice Capture] Forwarding what Claude received:\n\n---\n\n{body}"
-        subprocess.run(
-            [
-                GMAIL_VENV / "bin" / "python",
-                str(GMAIL_SCRIPT),
-                "send", f"Fwd: {subject}", fwd_body,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        fwd_cmd = [
+            GMAIL_VENV / "bin" / "python",
+            str(GMAIL_SCRIPT),
+            "send", f"Re: {subject}", fwd_body,
+        ]
+        if thread_id:
+            fwd_cmd.extend(["--thread-id", thread_id])
+        subprocess.run(fwd_cmd, capture_output=True, text=True, timeout=30)
         return True
     except Exception as e:
         log.error("Email failed: %s", e)
