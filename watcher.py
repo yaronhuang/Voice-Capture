@@ -27,10 +27,6 @@ LOG_FILE = Path(__file__).parent / "voice-capture.log"
 GMAIL_VENV = Path.home() / ".venvs/gmail"
 GMAIL_SCRIPT = Path.home() / ".claude/skills/gmail/scripts/gmail_tool.py"
 
-# How old a file can be and still get processed (seconds).
-# Prevents processing the entire backlog on first run.
-MAX_AGE_SECONDS = 300  # 5 minutes
-
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -292,30 +288,17 @@ def process_file(m4a: Path):
 def main():
     log.info("Voice Capture watcher triggered")
 
-    # Wait briefly for iCloud sync to finish writing the .m4a file.
-    # launchd triggers on the DB update, but the audio file may arrive
-    # a few seconds later.
-    time.sleep(5)
-
     if not VOICE_MEMOS_DIR.exists():
         log.error("Voice Memos directory not found: %s", VOICE_MEMOS_DIR)
         sys.exit(1)
 
     state = load_state()
     processed = set(state.get("processed", []))
-    now = time.time()
     new_count = 0
 
     for m4a in sorted(VOICE_MEMOS_DIR.glob("*.m4a")):
         fh = file_hash(m4a)
         if fh in processed:
-            continue
-
-        # Skip files older than MAX_AGE_SECONDS
-        age = now - m4a.stat().st_mtime
-        if age > MAX_AGE_SECONDS:
-            # Mark as processed so we don't check again
-            processed.add(fh)
             continue
 
         try:
