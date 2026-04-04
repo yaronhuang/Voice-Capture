@@ -295,7 +295,6 @@ def main():
     state = load_state()
     processed = set(state.get("processed", []))
     new_count = 0
-
     for m4a in sorted(VOICE_MEMOS_DIR.glob("*.m4a")):
         fh = file_hash(m4a)
         if fh in processed:
