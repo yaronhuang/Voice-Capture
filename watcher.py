@@ -219,7 +219,7 @@ def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filen
         fwd_body = f"[Voice Capture] Forwarding what Claude received:\n\n---\n\n{body}"
         fwd_cmd = [
             GMAIL_VENV / "bin" / "python", str(GMAIL_SCRIPT),
-            "send", f"Re: {subject}", fwd_body,
+            "send", subject, fwd_body,
         ]
         if thread_id:
             fwd_cmd.extend(["--thread-id", thread_id])
