@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/Users/aronhuang/.venvs/whisper/bin/python3</string>
-        <string>/Users/aronhuang/Developer/Claude/Voice-Capture/watcher.py</string>
+        <string>/Users/aronhuang/Developer/Kai/Voice-Capture/watcher.py</string>
     </array>
     <key>WatchPaths</key>
     <array>
