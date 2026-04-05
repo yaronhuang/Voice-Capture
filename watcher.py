@@ -3,7 +3,7 @@
 
 Triggered by launchd WatchPaths when the Voice Memos directory changes.
 Processes new .m4a files through Parakeet + Whisper, then sends both
-transcripts to Kai Chat's webhook for semantic post-processing.
+transcripts to Kai's webhook for semantic post-processing.
 """
 
 import hashlib
@@ -158,7 +158,7 @@ def load_vocab_prompt() -> str | None:
     return None
 
 # ---------------------------------------------------------------------------
-# Kai Chat webhook
+# Kai webhook
 # ---------------------------------------------------------------------------
 
 def _parse_recording_time(filename: str) -> tuple[str, str]:
