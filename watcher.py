@@ -295,18 +295,26 @@ def main():
     state = load_state()
     processed = set(state.get("processed", []))
     new_count = 0
-    for m4a in sorted(VOICE_MEMOS_DIR.glob("*.m4a")):
-        fh = file_hash(m4a)
-        if fh in processed:
-            continue
 
-        try:
-            process_file(m4a)
-            new_count += 1
-        except Exception:
-            log.exception("Failed to process %s", m4a.name)
+    # Re-glob after each pass to catch files that arrived during processing.
+    while True:
+        found_new = False
+        for m4a in sorted(VOICE_MEMOS_DIR.glob("*.m4a")):
+            fh = file_hash(m4a)
+            if fh in processed:
+                continue
 
-        processed.add(fh)
+            found_new = True
+            try:
+                process_file(m4a)
+                new_count += 1
+            except Exception:
+                log.exception("Failed to process %s", m4a.name)
+
+            processed.add(fh)
+
+        if not found_new:
+            break
 
     state["processed"] = list(processed)
     save_state(state)

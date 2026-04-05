@@ -13,8 +13,6 @@
     <array>
         <string>/Users/aronhuang/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings</string>
     </array>
-    <key>ThrottleInterval</key>
-    <integer>10</integer>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
