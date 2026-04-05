@@ -162,14 +162,26 @@ def load_vocab_prompt() -> str | None:
 # ---------------------------------------------------------------------------
 
 def _parse_recording_time(filename: str) -> tuple[str, str]:
-    """Parse timestamp from Voice Memo filename like '20260402 064548-C926ECA0.m4a'.
+    """Parse timestamp from recording filename.
+
+    Supports two formats:
+      Voice Memos: '20260402 064548-C926ECA0.m4a'
+      HTTP upload: '20260405-104251-8c224fbc.m4a'
 
     Returns (date_str "04/02/26", time_str "6:45 AM") or ("", "").
     """
+    from datetime import datetime
+    # Voice Memos format: "YYYYMMDD HHMMSS-..."
     try:
         parts = filename.split("-")[0].strip()
-        from datetime import datetime
         dt = datetime.strptime(parts, "%Y%m%d %H%M%S")
+        return dt.strftime("%m/%d/%y"), dt.strftime("%-I:%M %p")
+    except (ValueError, IndexError):
+        pass
+    # HTTP upload format: "YYYYMMDD-HHMMSS-..."
+    try:
+        segments = filename.split("-")
+        dt = datetime.strptime(f"{segments[0]} {segments[1]}", "%Y%m%d %H%M%S")
         return dt.strftime("%m/%d/%y"), dt.strftime("%-I:%M %p")
     except (ValueError, IndexError):
         return "", ""
