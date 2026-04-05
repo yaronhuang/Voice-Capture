@@ -3,7 +3,7 @@
 
 Triggered by launchd WatchPaths when the Voice Memos directory changes.
 Processes new .m4a files through Parakeet + Whisper, then sends both
-transcripts to Claude Chat's webhook for semantic post-processing.
+transcripts to Kai Chat's webhook for semantic post-processing.
 """
 
 import hashlib
@@ -158,7 +158,7 @@ def load_vocab_prompt() -> str | None:
     return None
 
 # ---------------------------------------------------------------------------
-# Claude Chat webhook
+# Kai Chat webhook
 # ---------------------------------------------------------------------------
 
 def _parse_recording_time(filename: str) -> tuple[str, str]:
@@ -207,17 +207,17 @@ def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filen
     )
 
     try:
-        # Send to Claude's inbox (✅ queue) for processing
+        # Send to Kai's inbox (✅ queue) for processing
         result = subprocess.run(
             [GMAIL_VENV / "bin" / "python", str(GMAIL_SCRIPT),
              "send", subject, body, "--to", "self"],
             capture_output=True, text=True, timeout=30,
         )
         if result.returncode != 0:
-            log.error("Email to Claude failed: %s", result.stderr.strip()[:200])
+            log.error("Email to Kai failed: %s", result.stderr.strip()[:200])
             return False
 
-        log.info("Email to Claude: %s", result.stdout.strip()[:100])
+        log.info("Email to Kai: %s", result.stdout.strip()[:100])
 
         # Get thread ID from the sent email for the forward copy
         thread_id = ""
@@ -228,7 +228,7 @@ def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filen
             pass
 
         # Forward a copy to Aaron in the same thread
-        fwd_body = f"[Voice Capture] Forwarding what Claude received:\n\n---\n\n{body}"
+        fwd_body = f"[Voice Capture] Forwarding what Kai received:\n\n---\n\n{body}"
         fwd_cmd = [
             GMAIL_VENV / "bin" / "python", str(GMAIL_SCRIPT),
             "send", subject, fwd_body,
@@ -289,7 +289,7 @@ def process_file(m4a: Path):
         whisper_text = transcribe_whisper(wav_path, vocab)
         log.info("  Whisper (%.1fs): %s", time.time() - t0, whisper_text[:100])
 
-        # 3. Send to Claude via email
+        # 3. Send to Kai via email
         send_to_claude(apple_text, parakeet_text, whisper_text, m4a.name, duration)
 
     finally:

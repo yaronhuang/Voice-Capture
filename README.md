@@ -1,15 +1,15 @@
 # Voice Capture
 
-Voice memo → automatic transcription → Claude post-processing → action.
+Voice memo → automatic transcription → Kai post-processing → action.
 
 ## Overview
 
-Record a voice memo on iPhone or Apple Watch. It syncs to your Mac via iCloud, gets transcribed by two models (Parakeet + Whisper), and Claude processes the transcript via email — logging medications, journaling, or answering questions.
+Record a voice memo on iPhone or Apple Watch. It syncs to your Mac via iCloud, gets transcribed by two models (Parakeet + Whisper), and Kai processes the transcript via email — logging medications, journaling, or answering questions.
 
 ## Architecture
 
 ```
-iPhone/Watch                Mac (automatic)                    Claude
+iPhone/Watch                Mac (automatic)                    Kai
 ┌─────────────┐            ┌──────────────────────────┐       ┌──────────┐
 │ Voice Memos │  iCloud    │ launchd detects new file  │ email │ Email    │
 │ Record/Stop │───sync────▶│  └─ Normalize audio       │──────▶│ watcher  │
@@ -28,7 +28,7 @@ Aaron's speech articulation is affected by radiation therapy. Testing across 6 m
 - **Parakeet TDT 0.6B**: Fastest (1.7s/60s audio), never hallucinates into repetition loops. Best for conversational audio.
 - **Whisper large-v3-turbo**: Supports prompt conditioning with medical vocabulary. Got "Ritalin 10mg, duloxetine" from audio all other models failed on.
 
-Claude cross-references both transcripts and uses semantic reasoning to fix errors (e.g., "Tyler five hundred celebrates a hundred" → "Tylenol 500, Celebrex 100").
+Kai cross-references both transcripts and uses semantic reasoning to fix errors (e.g., "Tyler five hundred celebrates a hundred" → "Tylenol 500, Celebrex 100").
 
 ## Setup
 
@@ -71,4 +71,4 @@ Health tracking form submission lives in the shared `health-tracking` skill (`~/
 1. Record a Voice Memo on iPhone or Apple Watch
 2. Wait for iCloud sync (~5-15 seconds)
 3. Pipeline runs automatically
-4. Claude interprets the transcript and takes action — answering questions, journaling, or submitting health tracking data to the Life Tracking Google Form
+4. Kai interprets the transcript and takes action — answering questions, journaling, or submitting health tracking data to the Life Tracking Google Form

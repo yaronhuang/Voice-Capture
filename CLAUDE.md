@@ -1,7 +1,7 @@
 # Voice Capture
 
 Voice memo transcription pipeline for Aaron. Two input paths:
-1. **Primary (HTTP):** iOS Shortcut records audio on Watch/iPhone → HTTP POST to Mac (`/api/voice`) → transcription → Claude
+1. **Primary (HTTP):** iOS Shortcut records audio on Watch/iPhone → HTTP POST to Mac (`/api/voice`) → transcription → Kai
 2. **Fallback (iCloud):** Native Voice Memos app → iCloud sync → launchd folder watcher → same pipeline
 
 ## Aaron's Speech
@@ -39,7 +39,7 @@ Path A — HTTP (primary):
   Watch/iPhone Shortcut → HTTP POST → Mac server (:5001/api/voice)
     → saves to uploads/ → watcher.py --file <path>
     → ffmpeg normalize → Apple Dictation + Parakeet TDT + Whisper
-    → email to Claude (✅ queue) → post-process + take action
+    → email to Kai (✅ queue) → post-process + take action
 
 Path B — iCloud (fallback):
   Voice Memos app → iCloud sync → Mac launchd folder watcher
