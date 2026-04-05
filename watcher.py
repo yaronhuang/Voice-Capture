@@ -161,25 +161,54 @@ def load_vocab_prompt() -> str | None:
 # Claude Chat webhook
 # ---------------------------------------------------------------------------
 
-def _parse_recording_time(filename: str) -> str:
-    """Parse timestamp from Voice Memo filename like '20260402 064548-C926ECA0.m4a'."""
+DAILY_THREAD_FILE = Path(__file__).parent / "daily_thread.json"
+
+
+def _parse_recording_time(filename: str) -> tuple[str, str]:
+    """Parse timestamp from Voice Memo filename like '20260402 064548-C926ECA0.m4a'.
+
+    Returns (date_str "04/02/26", time_str "6:45 AM") or ("", "").
+    """
     try:
-        parts = filename.split("-")[0].strip()  # '20260402 064548'
+        parts = filename.split("-")[0].strip()
         from datetime import datetime
         dt = datetime.strptime(parts, "%Y%m%d %H%M%S")
-        return dt.strftime("%B %d, %Y at %I:%M %p")  # 'April 02, 2026 at 06:45 AM'
+        return dt.strftime("%m/%d/%y"), dt.strftime("%-I:%M %p")
     except (ValueError, IndexError):
-        return ""
+        return "", ""
+
+
+def _get_daily_thread_id(date_str: str) -> str:
+    """Get or create a thread ID for today's voice memos."""
+    try:
+        data = json.loads(DAILY_THREAD_FILE.read_text()) if DAILY_THREAD_FILE.exists() else {}
+    except (json.JSONDecodeError, ValueError):
+        data = {}
+    return data.get(date_str, "")
+
+
+def _save_daily_thread_id(date_str: str, thread_id: str):
+    """Save today's thread ID for subsequent voice memos."""
+    try:
+        data = json.loads(DAILY_THREAD_FILE.read_text()) if DAILY_THREAD_FILE.exists() else {}
+    except (json.JSONDecodeError, ValueError):
+        data = {}
+    data[date_str] = thread_id
+    DAILY_THREAD_FILE.write_text(json.dumps(data, indent=2))
 
 
 def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filename: str, duration: float):
     """Send transcripts as an email to Aaron via Gmail skill."""
-    recorded_at = _parse_recording_time(filename)
-    time_str = f" recorded {recorded_at}" if recorded_at else ""
-    subject = f"Voice memo ({duration:.0f}s){time_str}"
+    date_str, time_str = _parse_recording_time(filename)
+
+    # Subject: daily thread subject + parakeet transcript preview
+    preview = parakeet_text[:60] + ("..." if len(parakeet_text) > 60 else "")
+    daily_subject = f"Voice memos {date_str}" if date_str else "Voice memos"
+    subject = f"Re: {daily_subject}"
+
     body = (
-        f"Aaron recorded a voice memo{' at ' + recorded_at if recorded_at else ''}. "
-        "Read Voice-Capture/CLAUDE.md for full context on post-processing his speech.\n\n"
+        f"Voice memo{' at ' + time_str if time_str else ''} ({duration:.0f}s). "
+        "Read Voice-Capture/CLAUDE.md for full context.\n\n"
         f"Transcript A (Apple Dictation): \"{apple_text}\"\n"
         f"Transcript B (Parakeet): \"{parakeet_text}\"\n"
         f"Transcript C (Whisper w/ medical vocab): \"{whisper_text}\"\n\n"
@@ -187,31 +216,33 @@ def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filen
         "and reply with what you understood."
     )
 
+    thread_id = _get_daily_thread_id(date_str) if date_str else ""
+
     try:
         # Send to Claude's inbox (✅ queue) for processing
-        result = subprocess.run(
-            [
-                GMAIL_VENV / "bin" / "python",
-                str(GMAIL_SCRIPT),
-                "send", subject, body,
-                "--to", "self",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        send_cmd = [
+            GMAIL_VENV / "bin" / "python",
+            str(GMAIL_SCRIPT),
+            "send", subject if thread_id else daily_subject, body,
+            "--to", "self",
+        ]
+        if thread_id:
+            send_cmd.extend(["--thread-id", thread_id])
+
+        result = subprocess.run(send_cmd, capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
             log.error("Email to Claude failed: %s", result.stderr.strip()[:200])
             return False
 
         log.info("Email to Claude: %s", result.stdout.strip()[:100])
 
-        # Parse thread ID and message ID from the response for threading
-        thread_id = ""
-        msg_id_header = ""
+        # Save thread ID for subsequent memos today
         try:
             resp = json.loads(result.stdout.strip())
-            thread_id = resp.get("threadId", "")
+            new_thread_id = resp.get("threadId", "")
+            if new_thread_id and date_str:
+                _save_daily_thread_id(date_str, new_thread_id)
+                thread_id = thread_id or new_thread_id
         except (json.JSONDecodeError, ValueError):
             pass
 
@@ -220,7 +251,7 @@ def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filen
         fwd_cmd = [
             GMAIL_VENV / "bin" / "python",
             str(GMAIL_SCRIPT),
-            "send", f"Re: {subject}", fwd_body,
+            "send", subject, fwd_body,
         ]
         if thread_id:
             fwd_cmd.extend(["--thread-id", thread_id])
