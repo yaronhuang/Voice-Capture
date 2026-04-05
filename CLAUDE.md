@@ -1,6 +1,8 @@
 # Voice Capture
 
-Voice memo transcription pipeline for Aaron. Records from iPhone/Apple Watch sync via iCloud Voice Memos, get transcribed by Parakeet + Whisper on the Mac, and dispatched to Claude via email for post-processing and action.
+Voice memo transcription pipeline for Aaron. Two input paths:
+1. **Primary (HTTP):** iOS Shortcut records audio on Watch/iPhone → HTTP POST to Mac (`/api/voice`) → transcription → Claude
+2. **Fallback (iCloud):** Native Voice Memos app → iCloud sync → launchd folder watcher → same pipeline
 
 ## Aaron's Speech
 
@@ -33,14 +35,21 @@ When you receive a voice memo email with two transcripts (Parakeet + Whisper):
 ## Architecture
 
 ```
-Voice Memos (iPhone/Watch) → iCloud sync → Mac launchd folder watcher
-  → ffmpeg normalize → Parakeet TDT 0.6B + Whisper large-v3-turbo
-  → email to Claude (✅ queue) → post-process + take action
+Path A — HTTP (primary):
+  Watch/iPhone Shortcut → HTTP POST → Mac server (:5001/api/voice)
+    → saves to uploads/ → watcher.py --file <path>
+    → ffmpeg normalize → Apple Dictation + Parakeet TDT + Whisper
+    → email to Claude (✅ queue) → post-process + take action
+
+Path B — iCloud (fallback):
+  Voice Memos app → iCloud sync → Mac launchd folder watcher
+    → same transcription pipeline as above
 ```
 
 ## Key Files
 
-- `watcher.py` — launchd-triggered script, orchestrates the pipeline
+- `watcher.py` — transcription pipeline; supports `--file <path>` (HTTP) and launchd trigger (iCloud)
+- `uploads/` — audio files received via HTTP POST from iOS Shortcut
 - `vocab_prompt.txt` — medication/medical vocabulary for Whisper prompt conditioning
-- `state.json` — tracks processed recordings
-- `com.aronhuang.voice-capture.plist` — launchd service definition
+- `state.json` — tracks processed recordings (iCloud path only)
+- `com.aronhuang.voice-capture.plist` — launchd service definition (iCloud path)

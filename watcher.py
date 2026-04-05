@@ -285,6 +285,16 @@ def process_file(m4a: Path):
 
 
 def main():
+    # Direct file mode: invoked by server.py for HTTP-uploaded audio
+    if len(sys.argv) > 1 and sys.argv[1] == "--file":
+        target = Path(sys.argv[2])
+        if not target.exists():
+            log.error("File not found: %s", target)
+            sys.exit(1)
+        log.info("Direct file mode: %s", target.name)
+        process_file(target)
+        return
+
     log.info("Voice Capture watcher triggered")
 
     if not VOICE_MEMOS_DIR.exists():
