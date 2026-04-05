@@ -178,22 +178,22 @@ def _parse_recording_time(filename: str) -> tuple[str, str]:
         return "", ""
 
 
-def _get_daily_thread_id(date_str: str) -> str:
-    """Get or create a thread ID for today's voice memos."""
+def _load_daily_thread(date_str: str) -> dict:
+    """Load thread IDs for today's voice memos."""
     try:
         data = json.loads(DAILY_THREAD_FILE.read_text()) if DAILY_THREAD_FILE.exists() else {}
     except (json.JSONDecodeError, ValueError):
         data = {}
-    return data.get(date_str, "")
+    return data.get(date_str, {})
 
 
-def _save_daily_thread_id(date_str: str, thread_id: str):
-    """Save today's thread ID for subsequent voice memos."""
+def _save_daily_thread(date_str: str, info: dict):
+    """Save today's thread info for subsequent voice memos."""
     try:
         data = json.loads(DAILY_THREAD_FILE.read_text()) if DAILY_THREAD_FILE.exists() else {}
     except (json.JSONDecodeError, ValueError):
         data = {}
-    data[date_str] = thread_id
+    data[date_str] = info
     DAILY_THREAD_FILE.write_text(json.dumps(data, indent=2))
 
 
@@ -216,18 +216,20 @@ def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filen
         "and reply with what you understood."
     )
 
-    thread_id = _get_daily_thread_id(date_str) if date_str else ""
+    thread_info = _load_daily_thread(date_str) if date_str else {}
+    claude_thread_id = thread_info.get("claude_thread_id", "")
+    fwd_message_id = thread_info.get("fwd_message_id", "")
 
     try:
         # Send to Claude's inbox (✅ queue) for processing
         send_cmd = [
             GMAIL_VENV / "bin" / "python",
             str(GMAIL_SCRIPT),
-            "send", subject if thread_id else daily_subject, body,
+            "send", subject if claude_thread_id else daily_subject, body,
             "--to", "self",
         ]
-        if thread_id:
-            send_cmd.extend(["--thread-id", thread_id])
+        if claude_thread_id:
+            send_cmd.extend(["--thread-id", claude_thread_id])
 
         result = subprocess.run(send_cmd, capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
@@ -236,26 +238,48 @@ def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filen
 
         log.info("Email to Claude: %s", result.stdout.strip()[:100])
 
-        # Save thread ID for subsequent memos today
+        # Save Claude's thread ID
         try:
             resp = json.loads(result.stdout.strip())
-            new_thread_id = resp.get("threadId", "")
-            if new_thread_id and date_str:
-                _save_daily_thread_id(date_str, new_thread_id)
-                thread_id = thread_id or new_thread_id
+            if resp.get("threadId") and date_str:
+                claude_thread_id = claude_thread_id or resp["threadId"]
         except (json.JSONDecodeError, ValueError):
             pass
 
-        # Forward a copy to Aaron in the same thread
+        # Forward a copy to Aaron — thread via In-Reply-To
         fwd_body = f"[Voice Capture] Forwarding what Claude received:\n\n---\n\n{body}"
         fwd_cmd = [
             GMAIL_VENV / "bin" / "python",
             str(GMAIL_SCRIPT),
             "send", subject, fwd_body,
         ]
-        if thread_id:
-            fwd_cmd.extend(["--thread-id", thread_id])
-        subprocess.run(fwd_cmd, capture_output=True, text=True, timeout=30)
+        if fwd_message_id:
+            fwd_cmd.extend(["--in-reply-to", fwd_message_id])
+
+        fwd_result = subprocess.run(fwd_cmd, capture_output=True, text=True, timeout=30)
+
+        # Save the forward's message ID for next memo's In-Reply-To
+        try:
+            fwd_resp = json.loads(fwd_result.stdout.strip())
+            # Read back the message to get its Message-ID header
+            if fwd_resp.get("id"):
+                read_result = subprocess.run(
+                    [GMAIL_VENV / "bin" / "python", str(GMAIL_SCRIPT),
+                     "read", fwd_resp["id"]],
+                    capture_output=True, text=True, timeout=10,
+                )
+                read_data = json.loads(read_result.stdout.strip())
+                fwd_message_id = read_data.get("message_id_header", fwd_message_id)
+        except (json.JSONDecodeError, ValueError, KeyError):
+            pass
+
+        # Save thread info for next memo
+        if date_str:
+            _save_daily_thread(date_str, {
+                "claude_thread_id": claude_thread_id,
+                "fwd_message_id": fwd_message_id,
+            })
+
         return True
     except Exception as e:
         log.error("Email failed: %s", e)
