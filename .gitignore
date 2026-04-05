@@ -10,5 +10,4 @@ build/
 *.mp3
 audio_uploads/
 state.json
-daily_thread.json
 voice-capture.log

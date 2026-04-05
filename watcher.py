@@ -161,9 +161,6 @@ def load_vocab_prompt() -> str | None:
 # Claude Chat webhook
 # ---------------------------------------------------------------------------
 
-DAILY_THREAD_FILE = Path(__file__).parent / "daily_thread.json"
-
-
 def _parse_recording_time(filename: str) -> tuple[str, str]:
     """Parse timestamp from Voice Memo filename like '20260402 064548-C926ECA0.m4a'.
 
@@ -178,36 +175,17 @@ def _parse_recording_time(filename: str) -> tuple[str, str]:
         return "", ""
 
 
-def _load_daily_thread(date_str: str) -> dict:
-    """Load thread IDs for today's voice memos."""
-    try:
-        data = json.loads(DAILY_THREAD_FILE.read_text()) if DAILY_THREAD_FILE.exists() else {}
-    except (json.JSONDecodeError, ValueError):
-        data = {}
-    return data.get(date_str, {})
-
-
-def _save_daily_thread(date_str: str, info: dict):
-    """Save today's thread info for subsequent voice memos."""
-    try:
-        data = json.loads(DAILY_THREAD_FILE.read_text()) if DAILY_THREAD_FILE.exists() else {}
-    except (json.JSONDecodeError, ValueError):
-        data = {}
-    data[date_str] = info
-    DAILY_THREAD_FILE.write_text(json.dumps(data, indent=2))
-
-
 def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filename: str, duration: float):
     """Send transcripts as an email to Aaron via Gmail skill."""
     date_str, time_str = _parse_recording_time(filename)
 
-    # Subject: daily thread subject + parakeet transcript preview
-    preview = parakeet_text[:60] + ("..." if len(parakeet_text) > 60 else "")
-    daily_subject = f"Voice memos {date_str}" if date_str else "Voice memos"
-    subject = f"Re: {daily_subject}"
+    # Subject: date + parakeet transcript preview (one thread per recording)
+    preview = parakeet_text[:50] + ("..." if len(parakeet_text) > 50 else "")
+    time_part = f" {time_str}" if time_str else ""
+    subject = f"[Voice {date_str}{time_part}] {preview}"
 
     body = (
-        f"Voice memo{' at ' + time_str if time_str else ''} ({duration:.0f}s). "
+        f"Voice memo ({duration:.0f}s). "
         "Read Voice-Capture/CLAUDE.md for full context.\n\n"
         f"Transcript A (Apple Dictation): \"{apple_text}\"\n"
         f"Transcript B (Parakeet): \"{parakeet_text}\"\n"
@@ -216,70 +194,36 @@ def send_to_claude(apple_text: str, parakeet_text: str, whisper_text: str, filen
         "and reply with what you understood."
     )
 
-    thread_info = _load_daily_thread(date_str) if date_str else {}
-    claude_thread_id = thread_info.get("claude_thread_id", "")
-    fwd_message_id = thread_info.get("fwd_message_id", "")
-
     try:
         # Send to Claude's inbox (✅ queue) for processing
-        send_cmd = [
-            GMAIL_VENV / "bin" / "python",
-            str(GMAIL_SCRIPT),
-            "send", subject if claude_thread_id else daily_subject, body,
-            "--to", "self",
-        ]
-        if claude_thread_id:
-            send_cmd.extend(["--thread-id", claude_thread_id])
-
-        result = subprocess.run(send_cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(
+            [GMAIL_VENV / "bin" / "python", str(GMAIL_SCRIPT),
+             "send", subject, body, "--to", "self"],
+            capture_output=True, text=True, timeout=30,
+        )
         if result.returncode != 0:
             log.error("Email to Claude failed: %s", result.stderr.strip()[:200])
             return False
 
         log.info("Email to Claude: %s", result.stdout.strip()[:100])
 
-        # Save Claude's thread ID
+        # Get thread ID from the sent email for the forward copy
+        thread_id = ""
         try:
             resp = json.loads(result.stdout.strip())
-            if resp.get("threadId") and date_str:
-                claude_thread_id = claude_thread_id or resp["threadId"]
+            thread_id = resp.get("threadId", "")
         except (json.JSONDecodeError, ValueError):
             pass
 
-        # Forward a copy to Aaron — thread via In-Reply-To
+        # Forward a copy to Aaron in the same thread
         fwd_body = f"[Voice Capture] Forwarding what Claude received:\n\n---\n\n{body}"
         fwd_cmd = [
-            GMAIL_VENV / "bin" / "python",
-            str(GMAIL_SCRIPT),
-            "send", subject, fwd_body,
+            GMAIL_VENV / "bin" / "python", str(GMAIL_SCRIPT),
+            "send", f"Re: {subject}", fwd_body,
         ]
-        if fwd_message_id:
-            fwd_cmd.extend(["--in-reply-to", fwd_message_id])
-
-        fwd_result = subprocess.run(fwd_cmd, capture_output=True, text=True, timeout=30)
-
-        # Save the forward's message ID for next memo's In-Reply-To
-        try:
-            fwd_resp = json.loads(fwd_result.stdout.strip())
-            # Read back the message to get its Message-ID header
-            if fwd_resp.get("id"):
-                read_result = subprocess.run(
-                    [GMAIL_VENV / "bin" / "python", str(GMAIL_SCRIPT),
-                     "read", fwd_resp["id"]],
-                    capture_output=True, text=True, timeout=10,
-                )
-                read_data = json.loads(read_result.stdout.strip())
-                fwd_message_id = read_data.get("message_id_header", fwd_message_id)
-        except (json.JSONDecodeError, ValueError, KeyError):
-            pass
-
-        # Save thread info for next memo
-        if date_str:
-            _save_daily_thread(date_str, {
-                "claude_thread_id": claude_thread_id,
-                "fwd_message_id": fwd_message_id,
-            })
-
+        if thread_id:
+            fwd_cmd.extend(["--thread-id", thread_id])
+        subprocess.run(fwd_cmd, capture_output=True, text=True, timeout=30)
         return True
     except Exception as e:
         log.error("Email failed: %s", e)
